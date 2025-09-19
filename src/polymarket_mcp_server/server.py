@@ -1,21 +1,17 @@
-import json
-from typing import Any, Dict, Optional, Union, Literal
+from typing import Any, Dict, Optional, Literal
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from py_clob_client.clob_types import OrderType
-from src.polymarket_mcp_server.client.gamma import GammaMarketClient
-from src.polymarket_mcp_server.client.polymarket import Polymarket
 
-# Load environment variables from .env file (silently continues if no file found)
-try:
-    load_dotenv()
-except Exception:
-    pass
+from src.polymarket_mcp_server.client.clob import CLOBClient
+from src.polymarket_mcp_server.client.gamma import GammaClient
+
+load_dotenv()
 
 mcp = FastMCP("Polymarket MCP")
-gamma = GammaMarketClient()
-polymarket = Polymarket()
+gamma = GammaClient()
+clob = CLOBClient()
 
 
 @mcp.tool(description="Get a specific market on Polymarket using Gamma API.")
@@ -44,10 +40,7 @@ async def get_market(slug: str) -> Dict[str, Any]:
 
 
 @mcp.tool(description="Get a list of all available markets on Polymarket using CLOB API.")
-async def get_markets(
-        active_only: Optional[bool] = None,
-        limit: Optional[int] = None
-) -> Dict[str, Any]:
+async def get_markets(limit: Optional[int] = None) -> Dict[str, Any]:
     """
     Get a list of all available markets from the CLOB API.
 
@@ -56,16 +49,10 @@ async def get_markets(
     - limit: Maximum number of markets to return
     """
     try:
-        if not polymarket:
+        if not clob:
             return {"error": "Polymarket CLOB client not initialized"}
 
-        markets = polymarket.get_all_markets()
-
-        if active_only:
-            markets = polymarket.filter_markets_for_trading(markets)
-
-        if limit:
-            markets = markets[:limit]
+        markets = gamma.get_current_markets(limit) if limit is not None else gamma.get_all_current_markets()
 
         # Convert to dict format for JSON serialization
         markets_data = []
@@ -78,6 +65,41 @@ async def get_markets(
         return {"error": f"Error getting markets: {str(e)}", "markets": []}
 
 
+@mcp.tool(description="Search markets by question text.")
+async def search_markets(query: str, limit: int = 20) -> Dict[str, Any]:
+    """
+    Search for markets by question text.
+
+    Parameters:
+    - query: Search term to match against market questions
+    - limit: Maximum number of results to return
+    """
+    try:
+        if not clob:
+            return {"error": "Polymarket CLOB client not initialized"}
+
+        markets = gamma.get_all_current_markets()
+
+        # Filter markets by query in question
+        filtered_markets = []
+        for market in markets:
+            if market.question and query.lower() in market.question.lower():
+                filtered_markets.append(market)
+
+        if limit:
+            filtered_markets = filtered_markets[:limit]
+
+        # Convert to dict format
+        markets_data = []
+        for market in filtered_markets:
+            market_dict = market.model_dump()
+            markets_data.append(market_dict)
+
+        return {"markets": markets_data, "count": len(markets_data)}
+    except Exception as e:
+        return {"error": f"Error searching markets: {str(e)}", "markets": []}
+
+
 @mcp.tool(description="Get the order book for a specific token.")
 async def get_order_book(token_id: str) -> Dict[str, Any]:
     """
@@ -87,10 +109,10 @@ async def get_order_book(token_id: str) -> Dict[str, Any]:
     - token_id: The CLOB token ID
     """
     try:
-        if not polymarket:
+        if not clob:
             return {"error": "Polymarket CLOB client not initialized"}
 
-        orderbook = polymarket.get_orderbook(token_id)
+        orderbook = clob.get_orderbook(token_id)
 
         # Convert to dict format
         return {
@@ -111,10 +133,10 @@ async def get_mid_price(token_id: str) -> Dict[str, Any]:
     - token_id: The CLOB token ID
     """
     try:
-        if not polymarket:
+        if not clob:
             return {"error": "Polymarket CLOB client not initialized"}
 
-        mid_price = polymarket.get_mid_from_book(token_id)
+        mid_price = clob.get_mid_from_book(token_id)
 
         return {
             "token_id": token_id,
@@ -134,10 +156,10 @@ async def get_price(token_id: str, side: Literal["BUY", "SELL"]) -> Dict[str, An
     - side: Either "BUY" or "SELL"
     """
     try:
-        if not polymarket:
+        if not clob:
             return {"error": "Polymarket CLOB client not initialized"}
 
-        price = polymarket.get_price(token_id, side)
+        price = clob.get_price(token_id, side)
 
         return {
             "token_id": token_id,
@@ -165,10 +187,10 @@ async def place_limit_order(
     - side: Either "BUY" or "SELL"
     """
     try:
-        if not polymarket:
+        if not clob:
             return {"error": "Polymarket CLOB client not initialized"}
 
-        order_id = polymarket.execute_limit_order(price, size, side, token_id)
+        order_id = clob.execute_limit_order(price, size, side, token_id)
 
         return {
             "order_id": order_id,
@@ -196,12 +218,12 @@ async def place_market_order(
     - order_type: Order type (FOK, IOC, GTC)
     """
     try:
-        if not polymarket:
+        if not clob:
             return {"error": "Polymarket CLOB client not initialized"}
 
         # Convert string to OrderType enum
         order_type_enum = getattr(OrderType, order_type, OrderType.FOK)
-        result = polymarket.execute_market_order(token_id, amount, order_type_enum)
+        result = clob.execute_market_order(token_id, amount, order_type_enum)
 
         return {
             "result": result,
@@ -219,118 +241,17 @@ async def get_usdc_balance() -> Dict[str, Any]:
     Get the USDC balance for the configured wallet.
     """
     try:
-        if not polymarket:
+        if not clob:
             return {"error": "Polymarket CLOB client not initialized"}
 
-        balance = polymarket.get_usdc_balance()
+        balance = clob.get_usdc_balance()
 
         return {
-            "address": polymarket.address,
+            "address": clob.address,
             "usdc_balance": balance
         }
     except Exception as e:
         return {"error": f"Error getting USDC balance: {str(e)}"}
-
-
-@mcp.tool(description="Search markets by question text.")
-async def search_markets(query: str, limit: int = 20) -> Dict[str, Any]:
-    """
-    Search for markets by question text.
-
-    Parameters:
-    - query: Search term to match against market questions
-    - limit: Maximum number of results to return
-    """
-    try:
-        if not polymarket:
-            return {"error": "Polymarket CLOB client not initialized"}
-
-        markets = polymarket.get_all_markets()
-
-        # Filter markets by query in question
-        filtered_markets = []
-        for market in markets:
-            if market.question and query.lower() in market.question.lower():
-                filtered_markets.append(market)
-
-        if limit:
-            filtered_markets = filtered_markets[:limit]
-
-        # Convert to dict format
-        markets_data = []
-        for market in filtered_markets:
-            market_dict = market.model_dump()
-            markets_data.append(market_dict)
-
-        return {"markets": markets_data, "count": len(markets_data)}
-    except Exception as e:
-        return {"error": f"Error searching markets: {str(e)}", "markets": []}
-
-
-# MCP Resources
-@mcp.resource("polymarket://market/{slug}")
-async def market_resource(slug: str) -> str:
-    """
-    Resource that returns a specific market by slug.
-
-    Parameters:
-    - slug: The market slug (e.g., "will-boris-johnson-win")
-    """
-    try:
-        market = await get_market(slug=slug)
-        return json.dumps(market, indent=2)
-    except Exception as e:
-        return f"Error retrieving market: {str(e)}"
-
-
-@mcp.resource("polymarket://markets")
-async def markets_resource() -> str:
-    """Resource that returns all available markets."""
-    try:
-        markets = await get_markets()
-        return json.dumps(markets, indent=2)
-    except Exception as e:
-        return f"Error retrieving markets: {str(e)}"
-
-
-@mcp.resource("polymarket://markets/active")
-async def active_markets_resource() -> str:
-    """Resource that returns only active markets."""
-    try:
-        markets = await get_markets(active_only=True)
-        return json.dumps(markets, indent=2)
-    except Exception as e:
-        return f"Error retrieving active markets: {str(e)}"
-
-
-@mcp.resource("polymarket://orderbook/{token_id}")
-async def orderbook_resource(token_id: str) -> str:
-    """
-    Resource that returns the order book for a specific token.
-
-    Parameters:
-    - token_id: The CLOB token ID
-    """
-    try:
-        orderbook = await get_order_book(token_id=token_id)
-        return json.dumps(orderbook, indent=2)
-    except Exception as e:
-        return f"Error retrieving order book: {str(e)}"
-
-
-@mcp.resource("polymarket://search/{query}")
-async def search_markets_resource(query: str) -> str:
-    """
-    Resource that returns markets matching a search query.
-
-    Parameters:
-    - query: Search term
-    """
-    try:
-        markets = await search_markets(query=query)
-        return json.dumps(markets, indent=2)
-    except Exception as e:
-        return f"Error searching markets: {str(e)}"
 
 
 if __name__ == "__main__":

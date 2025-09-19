@@ -1,14 +1,15 @@
-from typing import Any, List
+import json
+import os
+from typing import Any
 
 import httpx
-import json
 
 from src.polymarket_mcp_server.datamodel.objects import Market, ClobReward, PolymarketEvent, Tag
 
 
-class GammaMarketClient:
+class GammaClient:
     def __init__(self):
-        self.gamma_url = "https://gamma-api.polymarket.com"
+        self.gamma_url = os.environ.get("GAMMA_HOST", "https://api.gamma.markets")
         self.gamma_markets_endpoint = self.gamma_url + "/markets"
         self.gamma_events_endpoint = self.gamma_url + "/events"
 
@@ -68,6 +69,11 @@ class GammaMarketClient:
         except Exception as err:
             print(f"[parse_event] Caught exception: {err}")
 
+    def get_market(self, market_id: int) -> dict():
+        url = self.gamma_markets_endpoint + "/" + str(market_id)
+        response = httpx.get(url)
+        return response.json()
+
     def get_markets(self, querystring_params=None, parse_pydantic=False, local_file_path=None) -> list[Market] | None | Any:
         if querystring_params is None:
             querystring_params = {}
@@ -115,14 +121,24 @@ class GammaMarketClient:
         else:
             raise Exception()
 
-    def get_all_markets(self, limit=2) -> "list[Market]":
+    def get_all_markets(self, limit=100) -> "list[Market]":
         return self.get_markets(querystring_params={"limit": limit})
 
-    def get_all_events(self, limit=2) -> "list[PolymarketEvent]":
+    def get_all_events(self, limit=100) -> "list[PolymarketEvent]":
         return self.get_events(querystring_params={"limit": limit})
 
-    def get_current_markets(self, limit=4) -> "list[Market]":
+    def get_current_markets(self, limit=100) -> "list[Market]":
         return self.get_markets(
+            querystring_params={
+                "active": True,
+                "closed": False,
+                "archived": False,
+                "limit": limit,
+            }
+        )
+
+    def get_current_events(self, limit=4) -> "list[PolymarketEvent]":
+        return self.get_events(
             querystring_params={
                 "active": True,
                 "closed": False,
@@ -150,30 +166,3 @@ class GammaMarketClient:
             offset += limit
 
         return all_markets
-
-    def get_current_events(self, limit=4) -> "list[PolymarketEvent]":
-        return self.get_events(
-            querystring_params={
-                "active": True,
-                "closed": False,
-                "archived": False,
-                "limit": limit,
-            }
-        )
-
-    def get_clob_tradable_markets(self, limit=2) -> "list[Market]":
-        return self.get_markets(
-            querystring_params={
-                "active": True,
-                "closed": False,
-                "archived": False,
-                "limit": limit,
-                "enableOrderBook": True,
-            }
-        )
-
-    def get_market(self, market_id: int) -> dict():
-        url = self.gamma_markets_endpoint + "/" + str(market_id)
-        print(url)
-        response = httpx.get(url)
-        return response.json()
