@@ -4,12 +4,13 @@ from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from py_clob_client.clob_types import OrderType
 
-from src.polymarket_mcp_server.client.clob import CLOBClient
-from src.polymarket_mcp_server.client.gamma import GammaClient
+from .client.clob import CLOBClient
+from .client.gamma import GammaClient
 
 load_dotenv()
 
 mcp = FastMCP("Polymarket MCP")
+
 gamma = GammaClient()
 clob = CLOBClient()
 
@@ -252,8 +253,3 @@ async def get_usdc_balance() -> Dict[str, Any]:
         }
     except Exception as e:
         return {"error": f"Error getting USDC balance: {str(e)}"}
-
-
-if __name__ == "__main__":
-    print("Starting MCP server...")
-    mcp.run(transport="stdio")

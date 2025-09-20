@@ -3,9 +3,11 @@ import os
 from typing import Any
 
 import httpx
+from dotenv import load_dotenv
 
-from src.polymarket_mcp_server.datamodel.objects import Market, ClobReward, PolymarketEvent, Tag
+from ..datamodel.objects import Market, ClobReward, PolymarketEvent, Tag
 
+load_dotenv()
 
 class GammaClient:
     def __init__(self):

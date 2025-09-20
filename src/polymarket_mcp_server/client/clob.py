@@ -1,19 +1,15 @@
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
 from py_clob_client.client import ClobClient
 from py_clob_client.clob_types import ApiCreds, OrderArgs, MarketOrderArgs, OrderType, OrderBookSummary
 from py_clob_client.constants import POLYGON
-from pydantic import ValidationError
 from web3 import Web3
 from web3.middleware import ExtraDataToPOAMiddleware
 
-from src.polymarket_mcp_server.datamodel.objects import SimpleMarket
-
 load_dotenv()
-
 
 def parse_iso8601(s: str) -> datetime:
     """Python 3.10-friendly parse for timestamps like 2020-11-04T00:00:00Z."""

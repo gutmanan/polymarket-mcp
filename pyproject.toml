@@ -1,7 +1,7 @@
 [project]
 name = "polymarket_mcp_server"
 version = "0.1.0"
-description = "MCP server for Polymarket CLOB API integration"
+description = "MCP server for Polymarket Gamma & CLOB API integration"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -22,7 +22,7 @@ dev = [
 ]
 
 [project.scripts]
-polymarket-mcp-server = "polymarket_mcp_server.server:main"
+polymarket-mcp-server = "polymarket_mcp_server.main:run_server"
 
 [tool.setuptools]
 packages = ["polymarket_mcp_server"]
