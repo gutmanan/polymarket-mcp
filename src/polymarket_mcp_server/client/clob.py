@@ -111,11 +111,12 @@ class CLOBClient:
 
     # ---------- orders ----------
 
-    def execute_limit_order(self, price: float, size: float, side: str, token_id: str) -> str:
+    def execute_limit_order(self, token_id: str, price: float, size: float, side: str) -> str:
         """
         CLOB-native limit order. side: 0=BUY, 1=SELL (use py_clob_client.order_builder.constants BUY/SELL)
         """
-        return self.client.create_and_post_order(OrderArgs(price=price, size=size, side=side, token_id=token_id))
+        args = OrderArgs(token_id=token_id, price=price, size=size, side=side)
+        return self.client.create_and_post_order(args)
 
     def execute_market_order(self, token_id: str, amount: float, order_type: OrderType = OrderType.FOK) -> Dict[str, Any]:
         """
@@ -125,10 +126,18 @@ class CLOBClient:
         signed = self.client.create_market_order(args)
         return self.client.post_order(signed, orderType=order_type)
 
+    def cancel_order(self, order_id: str) -> Dict[str, Any]:
+        """
+        Cancel an existing order by ID.
+        """
+        return self.client.cancel(order_id)
+
     # ---------- balances ----------
 
     def get_usdc_balance(self, usdc_address: str = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174") -> float:
-        """USDC balance (Polygon)."""
+        """
+        USDC balance (Polygon).
+        """
         erc20_abi = [
             {"name": "balanceOf", "type": "function", "stateMutability": "view", "inputs": [{"name": "owner", "type": "address"}], "outputs": [{"name": "", "type": "uint256"}]}
         ]

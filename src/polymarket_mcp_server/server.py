@@ -5,12 +5,14 @@ from mcp.server.fastmcp import FastMCP
 from py_clob_client.clob_types import OrderType
 
 from .client.clob import CLOBClient
+from .client.data import DataClient
 from .client.gamma import GammaClient
 
 load_dotenv()
 
 mcp = FastMCP("Polymarket MCP")
 
+data = DataClient()
 gamma = GammaClient()
 clob = CLOBClient()
 
@@ -28,14 +30,7 @@ async def get_market(slug: str) -> Dict[str, Any]:
             return {"error": "Polymarket Gamma client not initialized"}
 
         markets = gamma.get_markets(querystring_params={"slug": slug}, parse_pydantic=True)
-
-        # Convert to dict format for JSON serialization
-        markets_data = []
-        for market in markets:
-            market_dict = market.model_dump()
-            markets_data.append(market_dict)
-
-        return {"markets": markets_data, "count": len(markets_data)}
+        return {"markets": markets, "count": len(markets)}
     except Exception as e:
         return {"error": f"Error getting market: {str(e)}", "market": None}
 
@@ -54,51 +49,9 @@ async def get_markets(limit: Optional[int] = None) -> Dict[str, Any]:
             return {"error": "Polymarket CLOB client not initialized"}
 
         markets = gamma.get_current_markets(limit) if limit is not None else gamma.get_all_current_markets()
-
-        # Convert to dict format for JSON serialization
-        markets_data = []
-        for market in markets:
-            market_dict = market.model_dump()
-            markets_data.append(market_dict)
-
-        return {"markets": markets_data, "count": len(markets_data)}
+        return {"markets": markets, "count": len(markets)}
     except Exception as e:
         return {"error": f"Error getting markets: {str(e)}", "markets": []}
-
-
-@mcp.tool(description="Search markets by question text.")
-async def search_markets(query: str, limit: int = 20) -> Dict[str, Any]:
-    """
-    Search for markets by question text.
-
-    Parameters:
-    - query: Search term to match against market questions
-    - limit: Maximum number of results to return
-    """
-    try:
-        if not clob:
-            return {"error": "Polymarket CLOB client not initialized"}
-
-        markets = gamma.get_all_current_markets()
-
-        # Filter markets by query in question
-        filtered_markets = []
-        for market in markets:
-            if market.question and query.lower() in market.question.lower():
-                filtered_markets.append(market)
-
-        if limit:
-            filtered_markets = filtered_markets[:limit]
-
-        # Convert to dict format
-        markets_data = []
-        for market in filtered_markets:
-            market_dict = market.model_dump()
-            markets_data.append(market_dict)
-
-        return {"markets": markets_data, "count": len(markets_data)}
-    except Exception as e:
-        return {"error": f"Error searching markets: {str(e)}", "markets": []}
 
 
 @mcp.tool(description="Get the order book for a specific token.")
@@ -191,7 +144,7 @@ async def place_limit_order(
         if not clob:
             return {"error": "Polymarket CLOB client not initialized"}
 
-        order_id = clob.execute_limit_order(price, size, side, token_id)
+        order_id = clob.execute_limit_order(token_id, price, size, side)
 
         return {
             "order_id": order_id,
@@ -236,6 +189,28 @@ async def place_market_order(
         return {"error": f"Error placing market order: {str(e)}"}
 
 
+@mcp.tool(description="Cancel an existing order by ID.")
+async def cancel_order(order_id: str) -> Dict[str, Any]:
+    """
+    Cancel an existing order by ID.
+
+    Parameters:
+    - order_id: The ID of the order to cancel
+    """
+    try:
+        if not clob:
+            return {"error": "Polymarket CLOB client not initialized"}
+
+        result = clob.cancel_order(order_id)
+
+        return {
+            "result": result,
+            "order_id": order_id
+        }
+    except Exception as e:
+        return {"error": f"Error cancelling order: {str(e)}"}
+
+
 @mcp.tool(description="Get USDC balance for the configured wallet.")
 async def get_usdc_balance() -> Dict[str, Any]:
     """
@@ -253,3 +228,50 @@ async def get_usdc_balance() -> Dict[str, Any]:
         }
     except Exception as e:
         return {"error": f"Error getting USDC balance: {str(e)}"}
+
+
+@mcp.tool(description="Get portfolio value for a specific user.")
+async def get_portfolio_value(user: str) -> Dict[str, Any]:
+    """
+    Get the aggregated portfolio value for a specific user.
+
+    Parameters:
+    - user: The wallet address of the user
+    """
+    try:
+        if not data:
+            return {"error": "Polymarket Data client not initialized"}
+
+        value = data.get_portfolio_value(user)
+
+        return {
+            "user": user,
+            "portfolio_value": value
+        }
+    except Exception as e:
+        return {"error": f"Error getting portfolio value: {str(e)}", "portfolio_value": {}}
+
+
+@mcp.tool(description="Get positions for a specific user.")
+async def get_positions(user: str, limit: Optional[int] = None) -> Dict[str, Any]:
+    """
+    Get current (open) positions for a specific user.
+
+    Parameters:
+    - user: The wallet address of the user
+    - limit: Maximum number of positions to return
+    """
+    try:
+        if not data:
+            return {"error": "Polymarket Data client not initialized"}
+
+        params = {"limit": limit} if limit is not None else {}
+        positions = data.get_positions(user, querystring_params=params)
+
+        return {
+            "user": user,
+            "positions": positions,
+            "count": len(positions) if isinstance(positions, list) else 0
+        }
+    except Exception as e:
+        return {"error": f"Error getting positions: {str(e)}", "positions": []}
