@@ -7,7 +7,6 @@ from py_clob_client.client import ClobClient
 from py_clob_client.clob_types import ApiCreds, OrderArgs, MarketOrderArgs, OrderType, OrderBookSummary
 from py_clob_client.constants import POLYGON
 from web3 import Web3
-from web3.middleware import ExtraDataToPOAMiddleware
 
 load_dotenv()
 
@@ -45,8 +44,8 @@ class CLOBClient:
 
         # web3 (for approvals/balances; PoA middleware for Polygon)
         self.w3 = Web3(Web3.HTTPProvider(polygon_rpc))
-        self.w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
-        self.address = self.w3.eth.account.from_key(self.private_key).address
+        self.account = self.w3.eth.account.from_key(self.private_key)
+        self.address = self.account.address
 
         # CLOB client + optional API creds (if you’ve pre-created them)
         self.client = self._init_client()
@@ -131,17 +130,3 @@ class CLOBClient:
         Cancel an existing order by ID.
         """
         return self.client.cancel(order_id)
-
-    # ---------- balances ----------
-
-    def get_usdc_balance(self, usdc_address: str = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174") -> float:
-        """
-        USDC balance (Polygon).
-        """
-        erc20_abi = [
-            {"name": "balanceOf", "type": "function", "stateMutability": "view", "inputs": [{"name": "owner", "type": "address"}], "outputs": [{"name": "", "type": "uint256"}]}
-        ]
-        usdc = self.w3.eth.contract(address=usdc_address, abi=erc20_abi)
-        raw = usdc.functions.balanceOf(self.address).call()
-        # USDC has 6 decimals
-        return raw / 10 ** 6

@@ -211,8 +211,8 @@ async def cancel_order(order_id: str) -> Dict[str, Any]:
         return {"error": f"Error cancelling order: {str(e)}"}
 
 
-@mcp.tool(description="Get USDC balance for the configured wallet.")
-async def get_usdc_balance() -> Dict[str, Any]:
+@mcp.tool(description="Get USDC balance for a specific user or the configured wallet if user not specified.")
+async def get_usdc_balance(user: str = None) -> Dict[str, Any]:
     """
     Get the USDC balance for the configured wallet.
     """
@@ -220,7 +220,7 @@ async def get_usdc_balance() -> Dict[str, Any]:
         if not clob:
             return {"error": "Polymarket CLOB client not initialized"}
 
-        balance = clob.get_usdc_balance()
+        balance = data.get_usdc_balance(user)
 
         return {
             "address": clob.address,
@@ -230,8 +230,8 @@ async def get_usdc_balance() -> Dict[str, Any]:
         return {"error": f"Error getting USDC balance: {str(e)}"}
 
 
-@mcp.tool(description="Get portfolio value for a specific user.")
-async def get_portfolio_value(user: str) -> Dict[str, Any]:
+@mcp.tool(description="Get portfolio value for a specific user or the configured wallet if user not specified.")
+async def get_portfolio_value(user: str = None) -> Dict[str, Any]:
     """
     Get the aggregated portfolio value for a specific user.
 
@@ -252,8 +252,8 @@ async def get_portfolio_value(user: str) -> Dict[str, Any]:
         return {"error": f"Error getting portfolio value: {str(e)}", "portfolio_value": {}}
 
 
-@mcp.tool(description="Get positions for a specific user.")
-async def get_positions(user: str, limit: Optional[int] = None) -> Dict[str, Any]:
+@mcp.tool(description="Get positions for a specific user or the configured wallet if user not specified.")
+async def get_positions(user: str = None, limit: Optional[int] = None) -> Dict[str, Any]:
     """
     Get current (open) positions for a specific user.
 
@@ -275,3 +275,77 @@ async def get_positions(user: str, limit: Optional[int] = None) -> Dict[str, Any
         }
     except Exception as e:
         return {"error": f"Error getting positions: {str(e)}", "positions": []}
+
+
+@mcp.tool(description="Get closed positions for a specific user or the configured wallet if user not specified.")
+async def get_closed_positions(user: str = None, limit: Optional[int] = None) -> Dict[str, Any]:
+    """
+    Get closed (settled) positions for a specific user.
+
+    Parameters:
+    - user: The wallet address of the user
+    - limit: Maximum number of closed positions to return
+    """
+    try:
+        if not data:
+            return {"error": "Polymarket Data client not initialized"}
+
+        params = {"limit": limit} if limit is not None else {}
+        closed_positions = data.get_closed_positions(user, querystring_params=params)
+
+        return {
+            "user": user,
+            "closed_positions": closed_positions,
+            "count": len(closed_positions) if isinstance(closed_positions, list) else 0
+        }
+    except Exception as e:
+        return {"error": f"Error getting closed positions: {str(e)}", "closed_positions": []}
+
+
+@mcp.tool(description="Get trades for a specific user or the configured wallet if user not specified.")
+async def get_trades(user: str = None, limit: Optional[int] = None) -> Dict[str, Any]:
+    """
+    Get trades/fills for a specific user.
+
+    Parameters:
+    - user: The wallet address of the user
+    - limit: Maximum number of trades to return
+    """
+    try:
+        if not data:
+            return {"error": "Polymarket Data client not initialized"}
+
+        params = {"limit": limit} if limit is not None else {}
+        trades = data.get_trades(user, querystring_params=params)
+
+        return {
+            "user": user,
+            "trades": trades,
+            "count": len(trades) if isinstance(trades, list) else 0
+        }
+    except Exception as e:
+        return {"error": f"Error getting trades: {str(e)}", "trades": []}
+
+
+@mcp.tool(description="Redeem a position for a specific condition ID and index sets.")
+async def redeem_position(condition_id: str, index_sets: list[int]) -> Dict[str, Any]:
+    """
+    Redeem a position for a specific condition ID and index sets.
+
+    Parameters:
+    - condition_id: The condition ID of the market
+    - index_sets: List of index sets to redeem
+    """
+    try:
+        if not data:
+            return {"error": "Polymarket Data client not initialized"}
+
+        tx_hash = data.redeem_position(condition_id, index_sets)
+
+        return {
+            "condition_id": condition_id,
+            "index_sets": index_sets,
+            "tx_hash": tx_hash
+        }
+    except Exception as e:
+        return {"error": f"Error redeeming position: {str(e)}"}

@@ -18,9 +18,10 @@ class GammaClient:
         response = httpx.get(url)
         return response.json()
 
-    def get_markets(self, querystring_params=None, parse_pydantic=False, local_file_path=None) -> Any:
+    def get_markets(self, querystring_params=None) -> Any:
         response = httpx.get(self.markets_endpoint, params=querystring_params)
-        return response.json()
+        data = response.json()
+        return [m['slug'] for m in data]
 
     def get_current_markets(self, limit=100) -> Any:
         return self.get_markets(
