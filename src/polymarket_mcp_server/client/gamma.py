@@ -20,8 +20,7 @@ class GammaClient:
 
     def get_markets(self, querystring_params=None) -> Any:
         response = httpx.get(self.markets_endpoint, params=querystring_params)
-        data = response.json()
-        return [m['slug'] for m in data]
+        return response.json()
 
     def get_current_markets(self, limit=100) -> Any:
         return self.get_markets(
@@ -52,3 +51,9 @@ class GammaClient:
             offset += limit
 
         return all_markets
+
+if __name__ == "__main__":
+    gamma = GammaClient()
+    # res = gamma.get_markets({'slug': 'will-trump-win-the-2020-us-presidential-election'})
+    res = gamma.get_market(40)
+    print(res)

@@ -71,6 +71,7 @@ class CLOBClient:
         else:
             client = ClobClient(self.clob_host, key=self.private_key, chain_id=self.chain_id)
             client.set_api_creds(client.create_or_derive_api_creds())
+            print(client.create_or_derive_api_creds())
         return client
 
     def _init_approvals(self) -> None:

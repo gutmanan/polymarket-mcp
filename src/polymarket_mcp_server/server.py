@@ -29,7 +29,7 @@ async def get_market(slug: str) -> Dict[str, Any]:
         if not gamma:
             return {"error": "Polymarket Gamma client not initialized"}
 
-        markets = gamma.get_markets(querystring_params={"slug": slug}, parse_pydantic=True)
+        markets = gamma.get_markets(querystring_params={"slug": slug})
         return {"markets": markets, "count": len(markets)}
     except Exception as e:
         return {"error": f"Error getting market: {str(e)}", "market": None}
